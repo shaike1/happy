@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  happy-admin-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: happy-admin-api
+    restart: unless-stopped
+    networks:
+      - traefik
+    volumes:
+      - /var/happy-admin/connections.txt:/app/connections.txt:ro
+    environment:
+      - DB_HOST=happy-postgres
+      - DB_PORT=5432
+      - DB_NAME=happy
+      - DB_USER=happy
+      - DB_PASSWORD=${HAPPY_DB_PASSWORD:-changeme}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-happy-admin-2025}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.happy-admin-api.rule=Host(`admin.happy.right-api.com`)"
+      - "traefik.http.routers.happy-admin-api.entrypoints=web,websecure"
+      - "traefik.http.routers.happy-admin-api.tls=true"
+      - "traefik.http.routers.happy-admin-api.tls.certresolver=mytlschallenge"
+      - "traefik.http.services.happy-admin-api.loadbalancer.server.port=5000"
+      - "traefik.http.middlewares.happy-admin-headers.headers.SSLRedirect=true"
+      - "traefik.http.middlewares.happy-admin-headers.headers.STSSeconds=315360000"
+      - "traefik.http.middlewares.happy-admin-headers.headers.browserXSSFilter=true"
+      - "traefik.http.middlewares.happy-admin-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.happy-admin-headers.headers.forceSTSHeader=true"
+      - "traefik.http.routers.happy-admin-api.middlewares=happy-admin-headers@docker"
+
+networks:
+  traefik:
+    external: true

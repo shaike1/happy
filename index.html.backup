@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Happy Server Admin Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            line-height: 1.6;
+        }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        header {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        h1 { color: #60a5fa; font-size: 28px; margin-bottom: 5px; }
+        .subtitle { color: #94a3b8; font-size: 14px; }
+        .live-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            margin-right: 5px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #3b82f6;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
+        }
+        .stat-card:hover { transform: translateY(-2px); }
+        .stat-card.success { border-left-color: #10b981; }
+        .stat-card.warning { border-left-color: #f59e0b; }
+        .stat-card.info { border-left-color: #6366f1; }
+        .stat-label {
+            color: #94a3b8;
+            font-size: 12px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        .stat-value { font-size: 32px; font-weight: bold; color: #e2e8f0; }
+        .stat-subtext { color: #64748b; font-size: 13px; margin-top: 5px; }
+        .section {
+            background: #1e293b;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .section-title {
+            color: #60a5fa;
+            font-size: 20px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #334155;
+        }
+        table { width: 100%; border-collapse: collapse; }
+        th {
+            background: #334155;
+            padding: 12px;
+            text-align: left;
+            color: #94a3b8;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        td { padding: 12px; border-bottom: 1px solid #334155; font-size: 13px; }
+        tr:hover { background: #2d3748; }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge.active { background: #10b981; color: #fff; }
+        .badge.inactive { background: #64748b; color: #fff; }
+        .refresh-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+            margin-right: 10px;
+        }
+        .refresh-btn:hover { background: #2563eb; }
+        .refresh-btn:disabled { background: #475569; cursor: not-allowed; }
+        .loading { text-align: center; padding: 40px; color: #64748b; }
+        .error {
+            background: #991b1b;
+            color: #fecaca;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #334155;
+        }
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+            color: #94a3b8;
+        }
+        .tab:hover { color: #e2e8f0; }
+        .tab.active { color: #60a5fa; border-bottom-color: #3b82f6; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        code {
+            background: #0f172a;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+        .timestamp { color: #94a3b8; font-size: 12px; }
+        .actions { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; }
+        .auto-refresh-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #94a3b8;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><span class="live-indicator"></span>Happy Server Admin Dashboard</h1>
+            <div class="subtitle">Live monitoring and management | <span id="current-time"></span> | Last updated: <span id="last-update">Never</span></div>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card success">
+                <div class="stat-label">Total Accounts</div>
+                <div class="stat-value" id="total-accounts">-</div>
+                <div class="stat-subtext">Registered users</div>
+            </div>
+            <div class="stat-card info">
+                <div class="stat-label">Active Machines</div>
+                <div class="stat-value" id="active-machines">-</div>
+                <div class="stat-subtext">Connected devices</div>
+            </div>
+            <div class="stat-card warning">
+                <div class="stat-label">Total Sessions</div>
+                <div class="stat-value" id="total-sessions">-</div>
+                <div class="stat-subtext">All-time conversations</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Messages</div>
+                <div class="stat-value" id="total-messages">-</div>
+                <div class="stat-subtext">Encrypted communications</div>
+            </div>
+            <div class="stat-card info">
+                <div class="stat-label">Active (1h)</div>
+                <div class="stat-value" id="active-1h">-</div>
+                <div class="stat-subtext">Sessions in last hour</div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button class="refresh-btn" id="refresh-btn" onclick="refreshAllData()">🔄 Refresh Now</button>
+            <div class="auto-refresh-toggle">
+                <input type="checkbox" id="auto-refresh-toggle" checked onchange="toggleAutoRefresh()">
+                <label for="auto-refresh-toggle">Auto-refresh every 30s</label>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab(event, 'overview')">📊 Overview</div>
+            <div class="tab" onclick="switchTab(event, 'accounts')">👥 Accounts</div>
+            <div class="tab" onclick="switchTab(event, 'sessions')">💬 Sessions</div>
+            <div class="tab" onclick="switchTab(event, 'activity')">📈 Activity</div>
+            <div class="tab" onclick="switchTab(event, 'commands')">⚡ Commands</div>
+        </div>
+
+        <div id="overview" class="tab-content active">
+            <div class="section">
+                <div class="section-title">📱 Connected Devices</div>
+                <div id="machines-content" class="loading">Loading...</div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">📲 Mobile Push Tokens</div>
+                <div id="tokens-content" class="loading">Loading...</div>
+            </div>
+        </div>
+
+        <div id="accounts" class="tab-content">
+            <div class="section">
+                <div class="section-title">👤 User Accounts</div>
+                <div id="accounts-content" class="loading">Loading...</div>
+            </div>
+        </div>
+
+        <div id="sessions" class="tab-content">
+            <div class="section">
+                <div class="section-title">💬 Active Sessions (Last 24h)</div>
+                <div id="sessions-content" class="loading">Loading...</div>
+            </div>
+        </div>
+
+        <div id="activity" class="tab-content">
+            <div class="section">
+                <div class="section-title">📊 Hourly Activity</div>
+                <div id="activity-content" class="loading">Loading...</div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">💰 Recent Usage Reports</div>
+                <div id="usage-content" class="loading">Loading...</div>
+            </div>
+        </div>
+
+        <div id="commands" class="tab-content">
+            <div class="section">
+                <div class="section-title">⚡ Management Scripts</div>
+                <table>
+                    <thead>
+                        <tr><th>Script</th><th>Description</th><th>Command</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Account Management</td>
+                            <td>List and view accounts</td>
+                            <td><code>/root/manage_accounts.sh list</code></td>
+                        </tr>
+                        <tr>
+                            <td>Connection Monitor</td>
+                            <td>Monitor active connections</td>
+                            <td><code>/root/happy_monitor.sh</code></td>
+                        </tr>
+                        <tr>
+                            <td>Session Analytics</td>
+                            <td>View session statistics</td>
+                            <td><code>/root/session_analytics.sh</code></td>
+                        </tr>
+                        <tr>
+                            <td>Account Actions</td>
+                            <td>Deactivate/manage accounts</td>
+                            <td><code>/root/account_actions.sh deactivate &lt;id&gt;</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let autoRefreshInterval = null;
+        let autoRefreshEnabled = true;
+
+        // Update current time
+        function updateTime() {
+            document.getElementById('current-time').textContent = new Date().toLocaleString();
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // Format timestamp
+        function formatTimestamp(isoString) {
+            if (!isoString) return 'Never';
+            const date = new Date(isoString);
+            const now = new Date();
+            const diff = now - date;
+
+            if (diff < 60000) return 'Just now';
+            if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+            if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+
+            return date.toLocaleString();
+        }
+
+        // Tab switching
+        function switchTab(event, tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+
+            // Load data for specific tabs
+            if (tabName === 'accounts') loadAccounts();
+            if (tabName === 'sessions') loadSessions();
+            if (tabName === 'activity') loadActivity();
+            if (tabName === 'overview') {
+                loadMachines();
+                loadPushTokens();
+            }
+        }
+
+        // Load statistics
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+
+                document.getElementById('total-accounts').textContent = data.total_accounts || 0;
+                document.getElementById('active-machines').textContent = data.active_machines || 0;
+                document.getElementById('total-sessions').textContent = data.total_sessions || 0;
+                document.getElementById('total-messages').textContent = data.total_messages || 0;
+                document.getElementById('active-1h').textContent = data.active_sessions_1h || 0;
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        // Load machines
+        async function loadMachines() {
+            const container = document.getElementById('machines-content');
+            try {
+                const response = await fetch('/api/machines');
+                const machines = await response.json();
+
+                if (machines.length === 0) {
+                    container.innerHTML = '<div class="empty-state">No machines registered</div>';
+                    return;
+                }
+
+                let html = '<table><thead><tr><th>Machine ID</th><th>Account</th><th>Status</th><th>Last Active</th></tr></thead><tbody>';
+
+                machines.forEach(m => {
+                    html += `<tr>
+                        <td><code>${m.id}</code></td>
+                        <td>${m.username || '<code>' + m.account_id + '</code>'}</td>
+                        <td><span class="badge ${m.active ? 'active' : 'inactive'}">${m.active ? 'Active' : 'Inactive'}</span></td>
+                        <td class="timestamp">${formatTimestamp(m.last_active_at)}</td>
+                    </tr>`;
+                });
+
+                html += '</tbody></table>';
+                container.innerHTML = html;
+            } catch (error) {
+                container.innerHTML = '<div class="error">Error loading machines: ' + error.message + '</div>';
+            }
+        }
+
+        // Load push tokens
+        async function loadPushTokens() {
+            const container = document.getElementById('tokens-content');
+            try {
+                const response = await fetch('/api/push-tokens');
+                const tokens = await response.json();
+
+                if (tokens.length === 0) {
+                    container.innerHTML = '<div class="empty-state">No push tokens registered</div>';
+                    return;
+                }
+
+                let html = '<table><thead><tr><th>Token</th><th>Account</th><th>Last Updated</th></tr></thead><tbody>';
+
+                tokens.forEach(t => {
+                    html += `<tr>
+                        <td><code>${t.token}</code></td>
+                        <td>${t.username || '<code>' + t.account_id + '</code>'}</td>
+                        <td class="timestamp">${formatTimestamp(t.updated_at)}</td>
+                    </tr>`;
+                });
+
+                html += '</tbody></table>';
+                container.innerHTML = html;
+            } catch (error) {
+                container.innerHTML = '<div class="error">Error loading tokens: ' + error.message + '</div>';
+            }
+        }
+
+        // Load accounts
+        async function loadAccounts() {
+            const container = document.getElementById('accounts-content');
+            try {
+                const response = await fetch('/api/accounts');
+                const accounts = await response.json();
+
+                if (accounts.length === 0) {
+                    container.innerHTML = '<div class="empty-state">No accounts found</div>';
+                    return;
+                }
+
+                let html = '<table><thead><tr><th>Account ID</th><th>Username</th><th>Name</th><th>Sessions</th><th>Messages</th><th>Last Active</th></tr></thead><tbody>';
+
+                accounts.forEach(a => {
+                    const name = [a.first_name, a.last_name].filter(Boolean).join(' ') || '-';
+                    html += `<tr>
+                        <td><code>${a.id}</code></td>
+                        <td>${a.username || '(not set)'}</td>
+                        <td>${name}</td>
+                        <td>${a.session_count}</td>
+                        <td>${a.message_count}</td>
+                        <td class="timestamp">${formatTimestamp(a.last_active)}</td>
+                    </tr>`;
+                });
+
+                html += '</tbody></table>';
+                container.innerHTML = html;
+            } catch (error) {
+                container.innerHTML = '<div class="error">Error loading accounts: ' + error.message + '</div>';
+            }
+        }
+
+        // Load sessions
+        async function loadSessions() {
+            const container = document.getElementById('sessions-content');
+            try {
+                const response = await fetch('/api/sessions');
+                const sessions = await response.json();
+
+                if (sessions.length === 0) {
+                    container.innerHTML = '<div class="empty-state">No active sessions</div>';
+                    return;
+                }
+
+                let html = '<table><thead><tr><th>Session ID</th><th>Account</th><th>Messages</th><th>Created</th><th>Last Active</th></tr></thead><tbody>';
+
+                sessions.forEach(s => {
+                    html += `<tr>
+                        <td><code>${s.id}</code></td>
+                        <td>${s.username || '<code>' + s.account_id + '</code>'}</td>
+                        <td>${s.message_count}</td>
+                        <td class="timestamp">${formatTimestamp(s.created_at)}</td>
+                        <td class="timestamp">${formatTimestamp(s.updated_at)}</td>
+                    </tr>`;
+                });
+
+                html += '</tbody></table>';
+                container.innerHTML = html;
+            } catch (error) {
+                container.innerHTML = '<div class="error">Error loading sessions: ' + error.message + '</div>';
+            }
+        }
+
+        // Load activity
+        async function loadActivity() {
+            const container = document.getElementById('activity-content');
+            try {
+                const response = await fetch('/api/activity');
+                const activity = await response.json();
+
+                if (activity.length === 0) {
+                    container.innerHTML = '<div class="empty-state">No activity in last 24 hours</div>';
+                    return;
+                }
+
+                let html = '<table><thead><tr><th>Time Period</th><th>Messages</th><th>Active Sessions</th></tr></thead><tbody>';
+
+                activity.forEach(a => {
+                    const hourDate = new Date(a.hour);
+                    const hourStr = hourDate.toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+
+                    html += `<tr>
+                        <td>${hourStr}</td>
+                        <td>${a.message_count}</td>
+                        <td>${a.active_sessions}</td>
+                    </tr>`;
+                });
+
+                html += '</tbody></table>';
+                container.innerHTML = html;
+            } catch (error) {
+                container.innerHTML = '<div class="error">Error loading activity: ' + error.message + '</div>';
+            }
+
+            // Load usage reports
+            loadUsageReports();
+        }
+
+        // Load usage reports
+        async function loadUsageReports() {
+            const container = document.getElementById('usage-content');
+            try {
+                const response = await fetch('/api/usage-reports');
+                const reports = await response.json();
+
+                if (reports.length === 0) {
+                    container.innerHTML = '<div class="empty-state">No usage reports</div>';
+                    return;
+                }
+
+                let html = '<table><thead><tr><th>Session</th><th>Total Tokens</th><th>Input</th><th>Output</th><th>Cost</th><th>Updated</th></tr></thead><tbody>';
+
+                reports.forEach(r => {
+                    const tokens = r.data?.tokens || {};
+                    const cost = r.data?.cost || {};
+
+                    html += `<tr>
+                        <td><code>${r.session_id}</code></td>
+                        <td>${tokens.total || 0}</td>
+                        <td>${tokens.input || 0}</td>
+                        <td>${tokens.output || 0}</td>
+                        <td>$${cost.total || '0.00'}</td>
+                        <td class="timestamp">${formatTimestamp(r.updated_at)}</td>
+                    </tr>`;
+                });
+
+                html += '</tbody></table>';
+                container.innerHTML = html;
+            } catch (error) {
+                container.innerHTML = '<div class="error">Error loading usage reports: ' + error.message + '</div>';
+            }
+        }
+
+        // Refresh all data
+        async function refreshAllData() {
+            const btn = document.getElementById('refresh-btn');
+            btn.disabled = true;
+            btn.textContent = '⟳ Refreshing...';
+
+            try {
+                await Promise.all([
+                    loadStats(),
+                    loadMachines(),
+                    loadPushTokens()
+                ]);
+
+                document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+            } catch (error) {
+                console.error('Error refreshing data:', error);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔄 Refresh Now';
+            }
+        }
+
+        // Toggle auto-refresh
+        function toggleAutoRefresh() {
+            autoRefreshEnabled = document.getElementById('auto-refresh-toggle').checked;
+
+            if (autoRefreshEnabled) {
+                autoRefreshInterval = setInterval(refreshAllData, 30000);
+            } else {
+                if (autoRefreshInterval) {
+                    clearInterval(autoRefreshInterval);
+                    autoRefreshInterval = null;
+                }
+            }
+        }
+
+        // Initial load
+        refreshAllData();
+
+        // Start auto-refresh
+        if (autoRefreshEnabled) {
+            autoRefreshInterval = setInterval(refreshAllData, 30000);
+        }
+    </script>
+</body>
+</html>
