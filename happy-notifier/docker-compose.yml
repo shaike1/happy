@@ -1,0 +1,22 @@
+version: "3.8"
+
+services:
+  happy-notifier:
+    build: .
+    container_name: happy-notifier
+    restart: unless-stopped
+    networks:
+      - traefik
+    volumes:
+      - /var/happy-admin:/var/happy-admin
+    environment:
+      - DB_PASSWORD=f4763a78cfd210dbecac95704b7efa3c
+    command: >
+      sh -c "while true; do
+        python -u /app/notifier.py;
+        sleep 60;
+      done"
+
+networks:
+  traefik:
+    external: true
