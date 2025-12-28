@@ -11,6 +11,7 @@ services:
       - traefik
     volumes:
       - /var/happy-admin/connections.txt:/app/connections.txt:ro
+      - /var/happy-admin/client-ips.txt:/app/client-ips.txt:ro
     environment:
       - DB_HOST=happy-postgres
       - DB_PORT=5432

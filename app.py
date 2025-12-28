@@ -417,10 +417,32 @@ def get_connections():
                 "status": "ACTIVE" if item['seconds_inactive'] < 60 else "IDLE"
             })
 
+        # Read client IPs from file (captured from netstat on port 443)
+        client_ips = []
+        try:
+            with open("/app/client-ips.txt", "r") as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    parts = line.strip().split("|")
+                    if len(parts) >= 4:
+                        client_ips.append({
+                            "ip": parts[0],
+                            "port": parts[1],
+                            "client_port": parts[2],
+                            "timestamp": int(parts[3])
+                        })
+        except FileNotFoundError:
+            pass
+        except Exception:
+            pass
+
         return jsonify({
             "connections": connections,
             "total_connections": len(connections),
-            "unique_accounts": len(set([c["account"] for c in connections]))
+            "unique_accounts": len(set([c["account"] for c in connections])),
+            "client_ips": client_ips,
+            "unique_client_ips": len(set([ip["ip"] for ip in client_ips]))
         })
     except Exception as e:
         return jsonify({"error": str(e), "connections": [], "total_connections": 0}), 500
