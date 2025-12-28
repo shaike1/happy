@@ -353,66 +353,77 @@ def get_usage_reports():
 @app.route('/api/connections')
 @requires_auth
 def get_connections():
-    """Get active network connections to Happy server from host"""
-    import subprocess
-    import socket
+    """Get active Happy server sessions and machine connections"""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'error': 'Database connection failed', 'connections': [], 'unique_ips': [], 'total_connections': 0}), 500
 
     try:
-        # Get host's IP address by reading from Docker gateway
-        gateway = "168.231.86.244"  # Happy server host IP
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
 
-        # Read from connections file (updated by cron on host)
+        # Get active sessions from last 5 minutes (indicating active connections)
+        cursor.execute("""
+            SELECT
+                s.id as session_id,
+                s."accountId" as account_id,
+                s.tag as session_tag,
+                s."lastActiveAt" as last_active,
+                s."createdAt" as created_at,
+                a.username,
+                a."firstName" as first_name,
+                a."lastName" as last_name,
+                COUNT(DISTINCT sm.id) as message_count,
+                EXTRACT(EPOCH FROM (NOW() - s."lastActiveAt")) as seconds_inactive
+            FROM "Session" s
+            LEFT JOIN "Account" a ON s."accountId" = a.id
+            LEFT JOIN "SessionMessage" sm ON s.id = sm."sessionId"
+            WHERE s.active = true
+              AND s."lastActiveAt" > NOW() - INTERVAL '5 minutes'
+            GROUP BY s.id, s."accountId", s.tag, s."lastActiveAt", s."createdAt",
+                     a.username, a."firstName", a."lastName"
+            ORDER BY s."lastActiveAt" DESC
+            LIMIT 50
+        """)
+
+        sessions = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
         connections = []
+        for session in sessions:
+            item = dict(session)
+            # Convert timestamps
+            if item['last_active']:
+                item['last_active'] = item['last_active'].isoformat()
+            if item['created_at']:
+                item['created_at'] = item['created_at'].isoformat()
 
-        try:
-            with open("/app/connections.txt", "r") as f:
-                for line in f:
-                    if not line.strip():
-                        continue
-                    parts = line.split()
-                    if len(parts) >= 4:
-                        local_addr = parts[1]
-                        remote_addr = parts[2]
-                        state = parts[3]
+            # Create a display name
+            if item.get('username'):
+                display_name = item['username']
+            elif item.get('first_name') or item.get('last_name'):
+                display_name = f"{item.get('first_name', '')} {item.get('last_name', '')}".strip()
+            else:
+                display_name = "Anonymous"
 
-                        # State 01 = ESTABLISHED
-                        if state == "01":
-                            # Parse hex format IP:PORT (little-endian)
-                            try:
-                                local_parts = local_addr.split(":")
-                                remote_parts = remote_addr.split(":")
-
-                                # Convert hex to decimal
-                                local_port = int(local_parts[1], 16)
-                                remote_port = int(remote_parts[1], 16)
-
-                                # Convert hex IP to dotted decimal (little-endian byte order)
-                                remote_ip_hex = remote_parts[0]
-                                remote_ip = ".".join(str(int(remote_ip_hex[i:i+2], 16)) for i in [6, 4, 2, 0])
-
-                                connections.append({
-                                    "remote_ip": remote_ip,
-                                    "remote_port": str(remote_port),
-                                    "local_port": str(local_port),
-                                    "status": "ESTABLISHED"
-                                })
-                            except Exception:
-                                continue
-        except FileNotFoundError:
-            pass  # File doesn't exist yet
-        except Exception:
-            pass  # Silent fail for other errors
-
-        # Get unique IPs
-        unique_ips = list(set([c["remote_ip"] for c in connections]))
+            connections.append({
+                "session_id": item['session_id'][:12] + "...",  # Shortened for display
+                "account": display_name,
+                "session_tag": item['session_tag'],
+                "last_active": item['last_active'],
+                "created_at": item['created_at'],
+                "messages": item['message_count'],
+                "inactive_seconds": int(item['seconds_inactive']),
+                "status": "ACTIVE" if item['seconds_inactive'] < 60 else "IDLE"
+            })
 
         return jsonify({
             "connections": connections,
-            "unique_ips": unique_ips,
-            "total_connections": len(connections)
+            "total_connections": len(connections),
+            "unique_accounts": len(set([c["account"] for c in connections]))
         })
     except Exception as e:
-        return jsonify({"error": str(e), "connections": [], "unique_ips": [], "total_connections": 0}), 500
+        return jsonify({"error": str(e), "connections": [], "total_connections": 0}), 500
 
 @app.route('/api/ip-info/<ip>')
 @requires_auth

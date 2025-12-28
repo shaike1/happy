@@ -217,7 +217,7 @@
             </div>
 
             <div class="section">
-                <div class="section-title">🌐 Network Connections (Live IPs)</div>
+                <div class="section-title">💬 Active Happy Sessions</div>
                 <div id="connections-content" class="loading">Loading...</div>
             </div>
         </div>
@@ -401,40 +401,46 @@
             }
         }
 
-        // Load network connections with IPs
+        // Load network connections - showing active Happy sessions
         async function loadConnections() {
-            const container = document.getElementById('connections-content');
+            const container = document.getElementById("connections-content");
 
             try {
-                const response = await fetch('/api/connections');
+                const response = await fetch("/api/connections");
                 const data = await response.json();
 
                 if (data.connections && data.connections.length === 0) {
-                    container.innerHTML = '<div class="empty-state">No active connections</div>';
+                    container.innerHTML = "<div class='empty-state'>No active sessions in last 5 minutes</div>";
                     return;
                 }
 
-                let html = '<table><thead><tr><th>Remote IP</th><th>Remote Port</th><th>Local Port</th><th>Status</th><th>Location</th></tr></thead><tbody>';
+                let html = "<table><thead><tr><th>Session</th><th>Account</th><th>Tag</th><th>Messages</th><th>Last Active</th><th>Status</th></tr></thead><tbody>";
 
                 for (const conn of data.connections) {
+                    const inactiveTime = conn.inactive_seconds < 60 
+                        ? `${conn.inactive_seconds}s ago`
+                        : `${Math.floor(conn.inactive_seconds / 60)}m ago`;
+                    
+                    const statusBadge = conn.status === "ACTIVE" 
+                        ? "<span class='badge active'>ACTIVE</span>"
+                        : "<span class='badge'>IDLE</span>";
+
                     html += `<tr>
-                        <td><code>${conn.remote_ip}</code></td>
-                        <td>${conn.remote_port}</td>
-                        <td>${conn.local_port}</td>
-                        <td><span class="badge active">${conn.status}</span></td>
-                        <td class="timestamp" id="loc-${conn.remote_ip.replace(/\./g, '-')}">Loading...</td>
+                        <td><code>${conn.session_id}</code></td>
+                        <td>${conn.account}</td>
+                        <td>${conn.session_tag || "default"}</td>
+                        <td>${conn.messages}</td>
+                        <td class="timestamp">${inactiveTime}</td>
+                        <td>${statusBadge}</td>
                     </tr>`;
                 }
 
-                html += '</tbody></table>';
+                html += "</tbody></table>";
+                html += `<div class="stats-grid"><div class="stat-card"><div class="stat-value">${data.total_connections}</div><div class="stat-label">Active Sessions</div></div><div class="stat-card"><div class="stat-value">${data.unique_accounts}</div><div class="stat-label">Unique Accounts</div></div></div>`;
+                
                 container.innerHTML = html;
-
-                // Fetch location for each unique IP
-                for (const ip of data.unique_ips) {
-                    fetchIPLocation(ip);
-                }
             } catch (error) {
-                container.innerHTML = '<div class="error">Error loading connections: ' + error.message + '</div>';
+                container.innerHTML = "<div class='error'>Error loading connections: " + error.message + "</div>";
             }
         }
 
