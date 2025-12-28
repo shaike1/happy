@@ -437,12 +437,35 @@ def get_connections():
         except Exception:
             pass
 
+        # Calculate monitoring status
+        import time
+        current_time = int(time.time())
+
+        # Check if data is fresh (updated within last 2 minutes)
+        newest_session = max([conn['inactive_seconds'] for conn in connections]) if connections else 999
+        newest_ip_timestamp = max([ip['timestamp'] for ip in client_ips]) if client_ips else 0
+        ip_age = current_time - newest_ip_timestamp if newest_ip_timestamp > 0 else 999
+
+        # Determine status
+        if not connections and not client_ips:
+            status = "⏳ Waiting for connections"
+            status_message = "No active sessions or client connections detected. The monitoring system is running and will update when clients connect."
+        elif newest_session < 60 or ip_age < 120:
+            status = "✅ Active monitoring"
+            status_message = f"System is actively tracking {len(connections)} sessions and {len(client_ips)} client IPs. Last update: {min(newest_session, ip_age)}s ago."
+        else:
+            status = "⚠️ Stale data"
+            status_message = f"Data may be outdated. Last session activity: {newest_session}s ago, Last IP update: {ip_age}s ago."
+
         return jsonify({
             "connections": connections,
             "total_connections": len(connections),
             "unique_accounts": len(set([c["account"] for c in connections])),
             "client_ips": client_ips,
-            "unique_client_ips": len(set([ip["ip"] for ip in client_ips]))
+            "unique_client_ips": len(set([ip["ip"] for ip in client_ips])),
+            "monitoring_status": status,
+            "status_message": status_message,
+            "last_update": current_time
         })
     except Exception as e:
         return jsonify({"error": str(e), "connections": [], "total_connections": 0}), 500

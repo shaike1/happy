@@ -218,6 +218,7 @@
 
             <div class="section">
                 <div class="section-title">💬 Active Happy Sessions</div>
+                <div id="connection-status" class="section" style="background: linear-gradient(135deg, #1e3a5f 0%, #2a5298 100%); border-left: 4px solid #4CAF50; padding: 15px; margin-bottom: 20px; border-radius: 8px;"></div>
                 <div id="connections-content" class="loading">Loading...</div>
             </div>
         </div>
@@ -332,6 +333,32 @@
                 const response = await fetch('/api/stats');
                 const data = await response.json();
 
+                // Update monitoring status
+                const statusContainer = document.getElementById("connection-status");
+                if (statusContainer && data.monitoring_status) {
+                    const statusColor = data.monitoring_status.includes("✅") ? "#4CAF50" : 
+                                       data.monitoring_status.includes("⏳") ? "#FF9800" : "#F44336";
+                    statusContainer.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <div style="font-size: 24px;">${data.monitoring_status.split(" ")[0]}</div>
+                            <div style="flex: 1;">
+                                <div style="font-weight: bold; font-size: 16px; color: ${statusColor}; margin-bottom: 5px;">
+                                    ${data.monitoring_status}
+                                </div>
+                                <div style="font-size: 14px; color: #b0b0b0;">
+                                    ${data.status_message}
+                                </div>
+                                <div style="font-size: 12px; color: #808080; margin-top: 5px;">
+                                    Auto-refreshing every 30 seconds | Last checked: ${new Date(data.last_update * 1000).toLocaleTimeString()}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    statusContainer.style.borderLeftColor = statusColor;
+                }
+
+
+
                 document.getElementById('total-accounts').textContent = data.total_accounts || 0;
                 document.getElementById('active-machines').textContent = data.active_machines || 0;
                 document.getElementById('total-sessions').textContent = data.total_sessions || 0;
@@ -409,6 +436,32 @@
                 const response = await fetch("/api/connections");
                 const data = await response.json();
 
+                // Update monitoring status
+                const statusContainer = document.getElementById("connection-status");
+                if (statusContainer && data.monitoring_status) {
+                    const statusColor = data.monitoring_status.includes("✅") ? "#4CAF50" : 
+                                       data.monitoring_status.includes("⏳") ? "#FF9800" : "#F44336";
+                    statusContainer.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <div style="font-size: 24px;">${data.monitoring_status.split(" ")[0]}</div>
+                            <div style="flex: 1;">
+                                <div style="font-weight: bold; font-size: 16px; color: ${statusColor}; margin-bottom: 5px;">
+                                    ${data.monitoring_status}
+                                </div>
+                                <div style="font-size: 14px; color: #b0b0b0;">
+                                    ${data.status_message}
+                                </div>
+                                <div style="font-size: 12px; color: #808080; margin-top: 5px;">
+                                    Auto-refreshing every 30 seconds | Last checked: ${new Date(data.last_update * 1000).toLocaleTimeString()}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    statusContainer.style.borderLeftColor = statusColor;
+                }
+
+
+
                 if (data.connections && data.connections.length === 0) {
                     container.innerHTML = "<div class='empty-state'>No active sessions in last 5 minutes</div>";
                     return;
@@ -448,6 +501,32 @@
             try {
                 const response = await fetch(`/api/ip-info/${ip}`);
                 const data = await response.json();
+
+                // Update monitoring status
+                const statusContainer = document.getElementById("connection-status");
+                if (statusContainer && data.monitoring_status) {
+                    const statusColor = data.monitoring_status.includes("✅") ? "#4CAF50" : 
+                                       data.monitoring_status.includes("⏳") ? "#FF9800" : "#F44336";
+                    statusContainer.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <div style="font-size: 24px;">${data.monitoring_status.split(" ")[0]}</div>
+                            <div style="flex: 1;">
+                                <div style="font-weight: bold; font-size: 16px; color: ${statusColor}; margin-bottom: 5px;">
+                                    ${data.monitoring_status}
+                                </div>
+                                <div style="font-size: 14px; color: #b0b0b0;">
+                                    ${data.status_message}
+                                </div>
+                                <div style="font-size: 12px; color: #808080; margin-top: 5px;">
+                                    Auto-refreshing every 30 seconds | Last checked: ${new Date(data.last_update * 1000).toLocaleTimeString()}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    statusContainer.style.borderLeftColor = statusColor;
+                }
+
+
 
                 const elementId = 'loc-' + ip.replace(/\./g, '-');
                 const element = document.getElementById(elementId);
